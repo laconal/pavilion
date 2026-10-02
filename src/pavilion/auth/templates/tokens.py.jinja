@@ -1,0 +1,120 @@
+"""Creating and verifying JWT access and refresh tokens ({{ algorithm }})."""
+
+import os
+import uuid
+from datetime import UTC, datetime, timedelta
+from functools import cache
+from pathlib import Path
+from typing import Any, Literal
+
+import jwt
+
+ALGORITHM = "{{ algorithm }}"
+ACCESS_TOKEN_TTL = {{ access_ttl }}
+REFRESH_TOKEN_TTL = {{ refresh_ttl }}
+
+TokenType = Literal["access", "refresh"]
+
+# Relative paths resolve against the working directory.
+{% if separate_refresh_keys %}
+# Refresh tokens have their own {{ "key pair" if asymmetric else "secret" }}, so a leaked access {{ "key" if asymmetric else "secret" }} can't be
+# used to forge them.
+{% endif %}
+{% if asymmetric and separate_refresh_keys %}
+ACCESS_PRIVATE_KEY_FILE = os.environ.get(
+    "JWT_ACCESS_PRIVATE_KEY_FILE", "{{ access_keys.private.as_posix() }}"
+)
+ACCESS_PUBLIC_KEY_FILE = os.environ.get(
+    "JWT_ACCESS_PUBLIC_KEY_FILE", "{{ access_keys.public.as_posix() }}"
+)
+REFRESH_PRIVATE_KEY_FILE = os.environ.get(
+    "JWT_REFRESH_PRIVATE_KEY_FILE", "{{ refresh_keys.private.as_posix() }}"
+)
+REFRESH_PUBLIC_KEY_FILE = os.environ.get(
+    "JWT_REFRESH_PUBLIC_KEY_FILE", "{{ refresh_keys.public.as_posix() }}"
+)
+{% elif asymmetric %}
+PRIVATE_KEY_FILE = os.environ.get("JWT_PRIVATE_KEY_FILE", "{{ access_keys.private.as_posix() }}")
+PUBLIC_KEY_FILE = os.environ.get("JWT_PUBLIC_KEY_FILE", "{{ access_keys.public.as_posix() }}")
+{% elif separate_refresh_keys %}
+ACCESS_SECRET_FILE = os.environ.get("JWT_ACCESS_SECRET_FILE", "{{ access_secret }}")
+REFRESH_SECRET_FILE = os.environ.get(
+    "JWT_REFRESH_SECRET_FILE", "{{ refresh_secret }}"
+)
+{% else %}
+SECRET_FILE = os.environ.get("JWT_SECRET_FILE", "{{ access_secret }}")
+{% endif %}
+
+
+class InvalidTokenError(Exception):
+    """The token is malformed, expired, wrongly signed, or of the wrong type."""
+
+
+@cache
+def _read(path: str) -> bytes:
+    return Path(path).read_bytes().strip()
+
+
+{% if asymmetric and separate_refresh_keys %}
+def _signing_key(token_type: TokenType) -> bytes:
+    return _read(ACCESS_PRIVATE_KEY_FILE if token_type == "access" else REFRESH_PRIVATE_KEY_FILE)
+
+
+def _verification_key(token_type: TokenType) -> bytes:
+    return _read(ACCESS_PUBLIC_KEY_FILE if token_type == "access" else REFRESH_PUBLIC_KEY_FILE)
+{% elif asymmetric %}
+def _signing_key(token_type: TokenType) -> bytes:
+    return _read(PRIVATE_KEY_FILE)  # shared by access and refresh tokens
+
+
+def _verification_key(token_type: TokenType) -> bytes:
+    return _read(PUBLIC_KEY_FILE)
+{% else %}
+def _signing_key(token_type: TokenType) -> bytes:
+    {% if separate_refresh_keys %}
+    return _read(ACCESS_SECRET_FILE if token_type == "access" else REFRESH_SECRET_FILE)
+    {% else %}
+    return _read(SECRET_FILE)  # shared by access and refresh tokens
+    {% endif %}
+
+
+# HMAC signs and verifies with the same secret.
+_verification_key = _signing_key
+{% endif %}
+
+
+def _create_token(subject: str, token_type: TokenType, ttl: timedelta) -> str:
+    now = datetime.now(UTC)
+    claims = {
+        "sub": subject,
+        "type": token_type,
+        "jti": uuid.uuid4().hex,
+        "iat": now,
+        "exp": now + ttl,
+    }
+    return jwt.encode(claims, _signing_key(token_type), algorithm=ALGORITHM)
+
+
+def create_access_token(subject: str) -> str:
+    return _create_token(subject, "access", ACCESS_TOKEN_TTL)
+
+
+def create_refresh_token(subject: str) -> str:
+    return _create_token(subject, "refresh", REFRESH_TOKEN_TTL)
+
+
+def decode_token(token: str, expected_type: TokenType) -> dict[str, Any]:
+    """Verify `token` and return its claims, or raise InvalidTokenError."""
+    try:
+        claims = jwt.decode(
+            token,
+            _verification_key(expected_type),
+            algorithms=[ALGORITHM],
+            options={"require": ["sub", "type", "jti", "iat", "exp"]},
+        )
+    except jwt.PyJWTError as e:
+        raise InvalidTokenError(str(e)) from e
+    # Stops a long-lived refresh token from being used as an access token, and vice versa.
+    if claims["type"] != expected_type:
+        raise InvalidTokenError(f"Expected a {expected_type} token")
+    return claims

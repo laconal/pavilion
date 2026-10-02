@@ -1,0 +1,59 @@
+"""Sending access and refresh tokens to the browser as HttpOnly cookies.
+
+Pass `cookie.kwargs` to your framework's `response.set_cookie(**cookie.kwargs)`
+(Starlette/FastAPI, Flask and Django all accept these names), and read tokens back
+from the request's cookies by ACCESS_COOKIE / REFRESH_COOKIE.
+
+HttpOnly keeps tokens out of reach of JavaScript (and so of XSS). Browsers attach
+cookies automatically, so SameSite is what stops cross-site requests from using them.
+"""
+
+from dataclasses import asdict, dataclass
+from typing import Any, Literal
+
+from .service import TokenPair
+from .tokens import ACCESS_TOKEN_TTL, REFRESH_TOKEN_TTL
+
+ACCESS_COOKIE = "access_token"
+REFRESH_COOKIE = "refresh_token"
+# The refresh cookie is only sent to paths under this one: point it at the
+# routes that call AuthService.refresh() and .logout().
+REFRESH_COOKIE_PATH = "/auth"
+
+
+@dataclass(frozen=True)
+class Cookie:
+    key: str
+    value: str
+    max_age: int
+    path: str = "/"
+    httponly: bool = True
+    # Most browsers accept Secure cookies on http://localhost, so this also works locally.
+    secure: bool = True
+    samesite: Literal["lax", "strict"] = "lax"
+
+    @property
+    def kwargs(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def _access_cookie(value: str, max_age: int) -> Cookie:
+    return Cookie(ACCESS_COOKIE, value, max_age)
+
+
+def _refresh_cookie(value: str, max_age: int) -> Cookie:
+    # Strict: never sent with cross-site requests, even top-level navigations.
+    return Cookie(REFRESH_COOKIE, value, max_age, path=REFRESH_COOKIE_PATH, samesite="strict")
+
+
+def token_cookies(pair: TokenPair) -> list[Cookie]:
+    """Cookies to set after login() or refresh(); they expire along with their tokens."""
+    return [
+        _access_cookie(pair.access_token, int(ACCESS_TOKEN_TTL.total_seconds())),
+        _refresh_cookie(pair.refresh_token, int(REFRESH_TOKEN_TTL.total_seconds())),
+    ]
+
+
+def cleared_cookies() -> list[Cookie]:
+    """Cookies to set after logout(): same names and paths, expired immediately."""
+    return [_access_cookie("", 0), _refresh_cookie("", 0)]

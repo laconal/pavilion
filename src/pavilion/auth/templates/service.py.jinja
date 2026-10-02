@@ -1,0 +1,123 @@
+"""Login, refresh and logout with JWT access/refresh tokens."""
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from functools import cache
+from typing import Any, Protocol
+
+from . import tokens
+from .passwords import hash_password, verify_password
+
+
+class AuthError(Exception):
+    """Invalid credentials, or an invalid, expired or revoked token."""
+
+
+class User(Protocol):
+    @property
+    def id(self) -> Any: ...
+
+    @property
+    def password_hash(self) -> str: ...
+
+
+class UserRepository(Protocol):
+    def get_by_username(self, username: str) -> User | None: ...
+
+
+class RevokedTokenStore(Protocol):
+    """Remembers revoked refresh tokens (by `jti`) until they would have expired."""
+
+    def revoke(self, jti: str, expires_at: datetime) -> None: ...
+
+    def is_revoked(self, jti: str) -> bool: ...
+
+
+class InMemoryRevokedTokenStore:
+    """Single-process store for development; use Redis or a database in production."""
+
+    def __init__(self) -> None:
+        self._revoked: dict[str, datetime] = {}
+
+    def revoke(self, jti: str, expires_at: datetime) -> None:
+        now = datetime.now(UTC)
+        # Expired tokens are rejected anyway, so there's no need to remember them.
+        self._revoked = {j: exp for j, exp in self._revoked.items() if exp > now}
+        self._revoked[jti] = expires_at
+
+    def is_revoked(self, jti: str) -> bool:
+        return jti in self._revoked
+
+
+@dataclass(frozen=True)
+class TokenPair:
+    access_token: str
+    refresh_token: str
+{% if not cookie %}
+    token_type: str = "bearer"
+{% endif %}
+
+
+class AuthService:
+    def __init__(self, users: UserRepository, revoked_tokens: RevokedTokenStore) -> None:
+        self.users = users
+        self.revoked_tokens = revoked_tokens
+
+    def login(self, username: str, password: str) -> TokenPair:
+        user = self.users.get_by_username(username)
+        if user is None:
+            # Hash anyway so response time doesn't reveal which usernames exist.
+            verify_password(password, _dummy_hash())
+            raise AuthError("Invalid username or password")
+        if not verify_password(password, user.password_hash):
+            raise AuthError("Invalid username or password")
+        return _issue_tokens(str(user.id))
+
+    def refresh(self, refresh_token: str) -> TokenPair:
+        """Exchange a refresh token for a new pair; the old refresh token stops working."""
+        claims = self._decode_refresh_token(refresh_token)
+        self._revoke(claims)
+        return _issue_tokens(claims["sub"])
+
+    def logout(self, refresh_token: str) -> None:
+        """Revoke the refresh token.
+
+        Access tokens are stateless and stay valid until they expire
+        (tokens.ACCESS_TOKEN_TTL), so keep that TTL short.
+        """
+        try:
+            claims = self._decode_refresh_token(refresh_token)
+        except AuthError:
+            return  # already unusable
+        self._revoke(claims)
+
+    def authenticate(self, access_token: str) -> str:
+        """Return the id of the user an access token was issued to."""
+        try:
+            return tokens.decode_token(access_token, "access")["sub"]
+        except tokens.InvalidTokenError as e:
+            raise AuthError(str(e)) from e
+
+    def _decode_refresh_token(self, refresh_token: str) -> dict[str, Any]:
+        try:
+            claims = tokens.decode_token(refresh_token, "refresh")
+        except tokens.InvalidTokenError as e:
+            raise AuthError(str(e)) from e
+        if self.revoked_tokens.is_revoked(claims["jti"]):
+            raise AuthError("Refresh token has been revoked")
+        return claims
+
+    def _revoke(self, claims: dict[str, Any]) -> None:
+        self.revoked_tokens.revoke(claims["jti"], datetime.fromtimestamp(claims["exp"], UTC))
+
+
+def _issue_tokens(user_id: str) -> TokenPair:
+    return TokenPair(
+        access_token=tokens.create_access_token(user_id),
+        refresh_token=tokens.create_refresh_token(user_id),
+    )
+
+
+@cache
+def _dummy_hash() -> str:
+    return hash_password("dummy password for constant-time login failures")
