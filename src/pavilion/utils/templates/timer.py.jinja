@@ -1,0 +1,32 @@
+import logging
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+logger = logging.getLogger(__name__)
+
+
+class Timer:
+    """How long a `with timer():` block took, in seconds (set when the block ends)."""
+
+    seconds: float = 0.0
+
+
+@contextmanager
+def timer(label: str = "block", *, log: bool = True) -> Iterator[Timer]:
+    """Time a block; logs "<label> took 12.3 ms" at INFO when it ends.
+
+    The duration is also kept on the yielded object:
+
+        with timer("import users") as t:
+            ...
+        print(t.seconds)
+    """
+    result = Timer()
+    start = time.perf_counter()
+    try:
+        yield result
+    finally:
+        result.seconds = time.perf_counter() - start
+        if log:
+            logger.info("%s took %.1f ms", label, result.seconds * 1000)

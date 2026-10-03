@@ -119,6 +119,30 @@ RSA size (RS256 and some key pair still missing) -> access TTL -> refresh TTL ->
   decode_responses=True)`; create = `SET NX [EX]`, update = `SET XX KEEPTTL` or
   `SET XX EX`, delete = `DEL > 0`; async/sync context manager + `close()`.
 
+## utils (`add util`)
+
+- `scaffold.py`: `UtilSpec(name, module, description, requires)`; template is
+  `<name>.py.jinja` = a *snippet* (imports + definitions, no module docstring). `MODULES`
+  holds each topic module's docstring. `scaffold_util`:
+  - module missing -> `merge.new_module(docstring, [snippets of requires..., util])`
+  - module present -> fail if it defines `name` (unless force); otherwise, for each
+    required util not yet defined and then the util itself, `merge.add_to_module`
+    (force passes `replace={name}`)
+  - `__init__.py` created docstring-only if missing; `exports.ensure_export` per added name.
+- `merge.py` (ast-based):
+  - `split(source) -> Snippet(imports, blocks)`; an import is `(module, name, alias)`;
+    a block is a top-level statement with the comments above it, its defined names, and
+    whether it's a def/class.
+  - `render_imports`: isort layout (future / stdlib via `sys.stdlib_module_names` /
+    third party / relative; `import x` before `from x`; names CONSTANT, Class, func).
+  - `new_module`: docstring, imports, blocks (dedup by names); 1 blank line after imports
+    before a non-def, 2 before a def.
+  - `add_to_module(source, snippet, replace)`: appends blocks whose names are new, replaces
+    blocks named in `replace` in place, skips other existing names (shared helpers like
+    `logger`). Missing imports rebuild the leading import block, unless it contains
+    comments — then they're inserted after it. No imports yet -> after the docstring.
+- `cli.py`: group with `list` + one subcommand per spec (`-d utils`, `--force`).
+
 ## Shared helpers
 
 - `deps.py`: `find_pyproject`, `project_root`, `ensure_dependency` (status enum),

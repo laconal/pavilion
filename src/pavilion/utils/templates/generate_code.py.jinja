@@ -1,0 +1,10 @@
+import secrets
+
+
+def generate_code(digits: int = 6) -> str:
+    """A random numeric code like "042917", for SMS/email verification.
+
+    A string, so leading zeros survive. Short codes are guessable: expire them quickly
+    and limit attempts.
+    """
+    return f"{secrets.randbelow(10**digits):0{digits}d}"

@@ -1,0 +1,17 @@
+import re
+import unicodedata
+
+
+def slugify(text: str, separator: str = "-", *, allow_unicode: bool = False) -> str:
+    """URL- and filename-safe text: "Hello, World! Ça va?" -> "hello-world-ca-va".
+
+    Accents are stripped and other non-ASCII letters dropped, unless allow_unicode is
+    set: then letters such as Cyrillic are kept ("Привет мир" -> "привет-мир").
+    """
+    if allow_unicode:
+        text = unicodedata.normalize("NFKC", text)
+        words = re.findall(r"[^\W_]+", text.lower())
+    else:
+        text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+        words = re.findall(r"[a-z0-9]+", text.lower())
+    return separator.join(words)

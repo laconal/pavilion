@@ -8,6 +8,8 @@ A project scaffolder CLI (Typer + uv). Every command is `pavilion add <thing>`:
 - `add auth` — generate a framework-agnostic JWT auth package (`auth/`) + keys/secrets
 - `add service list | redis` — `RedisService` (async/sync) in `services/`, `REDIS_URL` in
   `.env`, `uv add redis` if missing
+- `add util list | <name>` — stdlib helpers merged into topic modules in `utils/`
+  (tokens.py, masking.py, retry.py, timing.py, text.py, dates.py, passwords.py)
 - `add model list | User | BaseFields` — SQLAlchemy models in `models/` (Postgres); runs
   `uv add sqlalchemy` if missing
 
@@ -49,6 +51,7 @@ src/pavilion/
   auth/       cli.py, config.py (enums + AuthConfig), ttl.py, scaffold.py, templates/*.jinja
   models/     cli.py, scaffold.py (ModelSpec registry MODELS), templates/*.jinja
   services/   cli.py, scaffold.py (AppServiceSpec registry SERVICES), templates/*.jinja
+  utils/      cli.py, scaffold.py (UtilSpec registry UTILS), templates/*.jinja
 tests/        mirrors features; conftest.py chdirs every test into tmp_path
 scripts/drive_tty.py   drive the real prompts in a pseudo-terminal
 ```

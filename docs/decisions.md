@@ -116,6 +116,28 @@ the project owner — don't undo those without asking.
   package when run from inside the folder.
 - `redis` is installed like SQLAlchemy is for models (`--no-install` to skip).
 
+## Utils
+
+- User: `pavilion add util generate_password` writes their `generate_password(length=12)`
+  (letters, digits, `!@#$%^&*-_=+?`, `secrets.choice`) into the utils package; only
+  imports and a docstring were added.
+- User: added generate_token / generate_code / hash_token (tokens.py), mask_email /
+  mask_secret (masking.py), retry (retry.py), timer + timed (timing.py), slugify (text.py),
+  utcnow (dates.py). Interpretation of "retry/timer/timed": `@retry` decorator, `timer()`
+  context manager, `@timed` decorator built on timer (so `timed` requires `timer`).
+- Choices: generate_code returns str (leading zeros); hash_token is plain SHA-256 (fine
+  for long random tokens, not passwords); mask_secret always shows 4 stars (length
+  doesn't leak) and hides secrets shorter than 2 * visible; retry uses full jitter,
+  `max_delay`, logs each retry at WARNING, re-raises the last error, retries only
+  `exceptions`; timer/timed log at INFO; slugify drops non-ASCII letters unless
+  `allow_unicode=True` (keeps Cyrillic etc.); decorators use PEP 695 generics (3.12+).
+- Several utils share a topic module; adding one merges into the existing file via `ast`
+  (merge.py) instead of overwriting, so user edits survive. The user's generate_password
+  body keeps their formatting (`+` at line ends), even though ruff format would join it.
+- Modules are named by topic (`utils/passwords.py`), never after the function they hold:
+  re-exporting `generate_password` from `generate_password.py` in `__init__.py` makes
+  `utils.generate_password` the function and hides the module (mock.patch breaks).
+
 ## Auth
 
 - User: transport means *how JWTs travel* — Authorization header or HttpOnly cookies.

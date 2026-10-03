@@ -1,0 +1,10 @@
+from datetime import UTC, datetime
+
+
+def utcnow() -> datetime:
+    """The current time as a timezone-aware UTC datetime.
+
+    Use it instead of datetime.utcnow() (naive, and deprecated since Python 3.12), so
+    values compare and store correctly against timezone-aware columns (timestamptz).
+    """
+    return datetime.now(UTC)

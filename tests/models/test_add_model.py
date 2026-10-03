@@ -155,7 +155,7 @@ def test_existing_init_gets_an_export_line(tmp_path):
     assert result.exit_code == 0, result.output
     assert "added `from .user import User as User`" in result.output
     assert (tmp_path / "models" / "__init__.py").read_text() == (
-        '"""My models."""\nfrom .user import User as User\n'
+        '"""My models."""\n\nfrom .user import User as User\n'
     )
 
 

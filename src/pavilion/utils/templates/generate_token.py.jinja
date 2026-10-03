@@ -1,0 +1,10 @@
+import secrets
+
+
+def generate_token(nbytes: int = 32) -> str:
+    """A random URL-safe token: password-reset links, email confirmation, API keys.
+
+    `nbytes` bytes of randomness (the text is ~1.3 characters per byte). Store
+    hash_token(token), not the token itself.
+    """
+    return secrets.token_urlsafe(nbytes)

@@ -33,6 +33,19 @@ returning `{name: body}`, a dedicated command in `compose/cli.py` writing throug
 3. Test against the real thing: a fixture like `redis_url` built on `start_container`,
    and one flow script run for both `--client async` and `--client sync`.
 
+## Add a util
+
+1. `src/pavilion/utils/templates/<name>.py.jinja`: just the imports it needs and the
+   definition(s) — no module docstring (that's `MODULES[module]`). Shared helpers (e.g.
+   `logger = logging.getLogger(__name__)`) may repeat across snippets; existing names
+   are skipped when merging.
+2. A `UtilSpec(name, module, description, requires=())` in `utils/scaffold.py`'s `UTILS`;
+   a new topic module also needs a `MODULES` docstring. Never name the module after the
+   function (it would shadow the module in the package).
+3. Test the generated function in a subprocess (tests/utils/test_add_util.py);
+   `test_every_util_compiles_alone` covers the import automatically. Lint the generated
+   modules with ruff (see "Add an `add auth` option").
+
 ## Add a new `pavilion add <feature>`
 
 1. `src/pavilion/<feature>/` with `__init__.py` (one-line docstring), `cli.py` (the

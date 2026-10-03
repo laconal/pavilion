@@ -1,0 +1,10 @@
+import hashlib
+
+
+def hash_token(token: str) -> str:
+    """SHA-256 hex digest of `token`, to store and look tokens up by instead of the token.
+
+    Fine for long random tokens (generate_token); passwords need a slow hash such as
+    Argon2 or bcrypt instead.
+    """
+    return hashlib.sha256(token.encode()).hexdigest()

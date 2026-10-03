@@ -134,6 +134,33 @@ git-ignored. `.env` isn't loaded automatically: use `uv run --env-file .env ...`
 Compose's `env_file`. The `redis` package is added with `uv add` if it's missing, and if
 the compose file has no Redis yet, pavilion suggests `pavilion add docker redis`.
 
+### Utils
+
+```sh
+pavilion add util list                # show available utilities
+pavilion add util generate_token      # adds it to utils/tokens.py (-d to change)
+pavilion add util timed --force       # replace an existing definition
+```
+
+| Util | Module | What |
+|---|---|---|
+| `generate_password(length=12)` | `passwords.py` | random password: letters, digits, `!@#$%^&*-_=+?` |
+| `generate_token(nbytes=32)` | `tokens.py` | URL-safe random token (reset links, API keys) |
+| `generate_code(digits=6)` | `tokens.py` | numeric code as a string, e.g. `"042917"` |
+| `hash_token(token)` | `tokens.py` | SHA-256 hex, to store tokens hashed |
+| `mask_email(email)` | `masking.py` | `m***r@gmail.com` |
+| `mask_secret(secret, visible=4)` | `masking.py` | `****f3a9` |
+| `@retry(attempts=3, exceptions=..., delay=0.5, backoff=2, max_delay=30, jitter=True)` | `retry.py` | retries sync/async functions with exponential backoff |
+| `timer(label)` | `timing.py` | `with timer("x") as t:` logs the duration, `t.seconds` |
+| `@timed` | `timing.py` | logs each call's duration (sync/async); adds `timer` too |
+| `slugify(text, separator="-", allow_unicode=False)` | `text.py` | `Hello, World!` -> `hello-world` |
+| `utcnow()` | `dates.py` | timezone-aware UTC now |
+
+Utilities live in topic modules: adding one to an existing module appends the function
+and merges its imports, leaving everything else in the file alone. `--force` replaces
+just that function. Everything is re-exported from `utils/__init__.py`
+(`from utils import retry`). Standard library only.
+
 ## Development
 
 Each `pavilion add ...` feature lives in its own folder under `src/pavilion/`, with its
@@ -143,6 +170,7 @@ command (`cli.py`) next to the logic behind it:
 cli.py              root app; wires the feature commands together
 ui.py               shared menus, prompts and error exits
 services/           add service   (scaffold.py: AppServiceSpec registry; templates/)
+utils/              add util      (scaffold.py: UtilSpec registry; templates/)
 compose/            add docker    (file.py edits the compose file; services/ has one module per service)
 keys/               add keys      (generate.py)
 auth/               add auth      (config.py, scaffold.py, templates/)

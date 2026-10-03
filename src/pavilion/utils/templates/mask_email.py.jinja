@@ -1,0 +1,7 @@
+def mask_email(email: str) -> str:
+    """Hide most of an email for logs and hints: "maxpower@gmail.com" -> "m***r@gmail.com"."""
+    local, at, domain = email.rpartition("@")
+    if not at:
+        return "***"
+    hidden = f"{local[0]}***{local[-1]}" if len(local) > 2 else f"{local[:1]}***"
+    return f"{hidden}@{domain}"
