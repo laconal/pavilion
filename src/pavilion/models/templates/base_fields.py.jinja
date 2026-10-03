@@ -1,0 +1,37 @@
+"""Columns shared by most models: inherit from BaseFields instead of Base."""
+
+from datetime import datetime
+
+from sqlalchemy import BigInteger, DateTime, func
+from sqlalchemy.orm import Mapped, mapped_column, validates
+
+from .base import Base
+
+
+class BaseFields(Base):
+    """Abstract (no table of its own). Use it as the parent of a model:
+
+    class Post(BaseFields):
+        __tablename__ = "posts"
+        title: Mapped[str] = mapped_column(String(255))
+    """
+
+    __abstract__ = True
+    # Read server-generated timestamps right after INSERT/UPDATE instead of lazily on
+    # next access, which async sessions can't do.
+    __mapper_args__ = {"eager_defaults": True}
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    # Set by the database on INSERT; read-only afterwards.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    # Set on INSERT and on every UPDATE made through SQLAlchemy (raw SQL would need a
+    # trigger); can also be assigned explicitly.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    @validates("created_at")
+    def _created_at_is_read_only(self, key: str, value: datetime) -> datetime:
+        raise AttributeError("created_at is set by the database and can't be changed")

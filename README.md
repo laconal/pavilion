@@ -76,6 +76,31 @@ refresh tokens are signed with their own keys/secret (`secrets/private_refresh.p
 access key can't forge refresh tokens. The in-memory revoked-token store is for
 development; back it with Redis or a database in production.
 
+### Models
+
+```sh
+pavilion add model list               # show available models
+pavilion add model User               # SQLAlchemy model in models/ (-d to change)
+pavilion add model BaseFields         # abstract parent: BigInteger id, created_at, updated_at
+pavilion add model User --no-install  # don't touch pyproject.toml
+```
+
+Generates `models/base.py` (a `DeclarativeBase` with a constraint naming convention;
+created once and never overwritten), `models/user.py` and `models/__init__.py`. If the
+project's `pyproject.toml` doesn't list SQLAlchemy yet, pavilion runs `uv add sqlalchemy`.
+
+The `User` model (`users` table): `id`, `firstname`, `lastname`, `middlename` (nullable),
+`login` (unique, always stored lowercase), `hashed_password`, `active` (default true).
+Look users up with `User.login == normalize_login(raw)`. It fits the generated auth
+package's `User` protocol as is.
+
+`BaseFields` is an abstract model to inherit from (`class Post(BaseFields): ...`): a
+`BigInteger` auto-increment `id`, `created_at` (set by the database on insert, read-only)
+and `updated_at` (set on insert and on every update, editable). Both timestamps are
+timezone-aware. Each new model is added to `models/__init__.py` in sorted order.
+
+The models target PostgreSQL.
+
 ## Development
 
 Each `pavilion add ...` feature lives in its own folder under `src/pavilion/`, with its
@@ -96,6 +121,10 @@ register it in `compose/services/__init__.py`. Tests mirror this layout under `t
 ```sh
 uv run pytest
 ```
+
+The model tests run against a real PostgreSQL: a throwaway `postgres:18` Docker
+container, or the server in `PAVILION_TEST_POSTGRES_URL` (an admin URL such as
+`postgresql://postgres:secret@localhost:5432/postgres`). Without either they're skipped.
 
 ## License
 

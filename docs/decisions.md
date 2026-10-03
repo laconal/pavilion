@@ -42,6 +42,35 @@ the project owner — don't undo those without asking.
 - `add keys` default (no TTY) is RS256 for compatibility; `add auth` preselects EdDSA
   (user's mockup).
 
+## Models
+
+- User: `pavilion add model User` generates a SQLAlchemy model with the fields they
+  specified (users table; firstname/lastname/login 255, middlename nullable,
+  hashed_password, active default true, login saved lowercase).
+- Added beyond the spec: `id` primary key, `unique=True` on `login`, middlename length 255.
+- `hashed_password` is `String(255)`, not Text: argon2 ~100 / bcrypt 60 chars, bounded,
+  and VARCHAR is friendlier on MySQL; on Postgres they're equivalent.
+- Lowercase login uses `@validates` instead of a Python `@property` (user said
+  "property"): it covers the constructor and assignments and keeps `User.login` a plain
+  column for queries. A property would need a `_login` column plus a hybrid property.
+  Bulk UPDATE statements bypass it; `normalize_login()` is exported for lookups.
+- User: the command installs SQLAlchemy (`uv add`) when it's missing. This differs from
+  `add auth`, which only prints `Next: uv add ...` — aligning auth is an open option.
+- The auth `User` protocol attribute was renamed `password_hash` -> `hashed_password`
+  to match the model, so the two generated packages work together unchanged.
+
+- User: **PostgreSQL is pavilion's database.** Templates are written for Postgres only
+  (no SQLite variants), and model tests run against real Postgres 18 in Docker.
+- User: `add model BaseFields` — abstract parent with `id` BigInteger autoincrement PK,
+  `created_at` (auto on insert, not editable), `updated_at` (auto on update, editable).
+  Choices: timestamps are timezone-aware; `updated_at` is also set on insert (NOT NULL,
+  equals created_at at first); "not editable" = assigning raises AttributeError, also in
+  the constructor; `onupdate` only covers UPDATEs issued through SQLAlchemy (raw SQL
+  would need a trigger); `eager_defaults` so async sessions get the timestamps.
+- `autoincrement=True` on Postgres renders BIGSERIAL (as the user specified); an
+  `Identity()` column (GENERATED ... AS IDENTITY) would be the modern alternative.
+- `User` still has its own Integer `id` and doesn't inherit `BaseFields` (not requested).
+
 ## Auth
 
 - User: transport means *how JWTs travel* — Authorization header or HttpOnly cookies.

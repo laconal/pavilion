@@ -8,6 +8,16 @@
 3. Test in `tests/compose/test_add_service.py`; `add service list` and `--help` pick it
    up automatically. If you can, validate output with `docker compose config -q`.
 
+## Add a model
+
+1. `src/pavilion/models/templates/<module>.py.jinja` importing `from .base import Base`.
+2. A `ModelSpec(name, module, description)` in `models/scaffold.py`, added to `MODELS`
+   (the CLI argument and menu pick it up).
+3. Test it like `USER_MODEL_CHECK`: take the `database_url` fixture (fresh Postgres
+   database), `run_generated(tmp_path, SCRIPT, database_url)`, and in the script
+   `create_engine(os.environ["DATABASE_URL"])` + `create_all`. Extra packages go
+   through `deps.ensure_dependency`.
+
 ## Add a new `pavilion add <feature>`
 
 1. `src/pavilion/<feature>/` with `__init__.py` (one-line docstring), `cli.py` (the

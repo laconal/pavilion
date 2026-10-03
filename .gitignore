@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Private notes (e.g. RELEASE.local.md)
+*.local.md

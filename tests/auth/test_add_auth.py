@@ -19,7 +19,7 @@ from auth import AuthError, hash_password
 @dataclass
 class User:
     id: int
-    password_hash: str
+    hashed_password: str
 
 
 class Users:

@@ -67,6 +67,30 @@ RSA size (RS256 and some key pair still missing) -> access TTL -> refresh TTL ->
   `access_keys`/`refresh_keys` (KeyPair), `access_secret`/`refresh_secret` (posix str),
   `package` (directory name, for import examples).
 
+## models (`add model`)
+
+- `scaffold.py`: `ModelSpec(name, module, description)` (template = `<module>.py.jinja`),
+  registry `MODELS`. `scaffold_model` fails if `<module>.py` exists (unless force), creates
+  `base.py` / `__init__.py` only when missing (never overwritten, even with force), and
+  reports `needs_export` when an existing `__init__.py` doesn't mention the model.
+- `cli.py`: `model_app` group (like `add service`): `list` plus one subcommand per
+  `MODELS` entry, each with `-d`, `--install/--no-install`, `--force`. Names are
+  case-insensitive via `context_settings={"token_normalize_func": ...}` mapping any case
+  to the registered name. No subcommand -> menu in a TTY, help otherwise. After writing,
+  `--install` (default) calls `deps.ensure_dependency("sqlalchemy", cwd)`.
+- `deps.py`: finds the nearest `pyproject.toml` upward, reads `[project] dependencies`
+  (PEP 503-normalized names, extras/specifiers ignored), runs `uv add <pkg>` in that
+  directory if missing. Statuses: ADDED, ALREADY_PRESENT, NO_PROJECT, NO_UV, FAILED
+  (FAILED exits 1; the generated files stay).
+- An existing `__init__.py` that doesn't mention the model gets a re-export line
+  (`from .x import X as X`) inserted among the `from .` imports in sorted order.
+- Generated `BaseFields`: `__abstract__`, `eager_defaults`, `BigInteger` id (BIGSERIAL),
+  `created_at`/`updated_at` `DateTime(timezone=True)` with `server_default=func.now()`
+  (+ `onupdate` for updated_at); a `@validates("created_at")` that always raises makes
+  it read-only (DB-filled values don't go through validators).
+- Generated `User`: SQLAlchemy 2.0 typed `Mapped[...]` columns, `@validates("login")`
+  lowercasing via `normalize_login()`, `active` with `default=True` + `server_default=true()`.
+
 ## The generated auth package
 
 Framework-agnostic, synchronous, relative imports (works under any package name):
@@ -74,7 +98,7 @@ Framework-agnostic, synchronous, relative imports (works under any package name)
 | File | Contents |
 |---|---|
 | `tokens.py` | `ALGORITHM`, TTLs, key file paths (env-overridable), `_signing_key(type)` / `_verification_key(type)`, `create_access_token`, `create_refresh_token`, `decode_token(token, expected_type)` |
-| `service.py` | `User`/`UserRepository` protocols, `RevokedTokenStore` + `InMemoryRevokedTokenStore`, `TokenPair`, `AuthService.login/refresh/logout/authenticate` |
+| `service.py` | `User` (`id`, `hashed_password`) / `UserRepository` protocols, `RevokedTokenStore` + `InMemoryRevokedTokenStore`, `TokenPair`, `AuthService.login/refresh/logout/authenticate` |
 | `passwords.py` | `hash_password` / `verify_password` (argon2-cffi or bcrypt) |
 | `cookies.py` (cookie only) | `Cookie` (kwargs for `set_cookie`), `token_cookies(pair)`, `cleared_cookies()` |
 | `__init__.py` | re-exports + usage example in the docstring |

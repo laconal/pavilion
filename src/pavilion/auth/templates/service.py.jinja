@@ -18,7 +18,7 @@ class User(Protocol):
     def id(self) -> Any: ...
 
     @property
-    def password_hash(self) -> str: ...
+    def hashed_password(self) -> str: ...
 
 
 class UserRepository(Protocol):
@@ -69,7 +69,7 @@ class AuthService:
             # Hash anyway so response time doesn't reveal which usernames exist.
             verify_password(password, _dummy_hash())
             raise AuthError("Invalid username or password")
-        if not verify_password(password, user.password_hash):
+        if not verify_password(password, user.hashed_password):
             raise AuthError("Invalid username or password")
         return _issue_tokens(str(user.id))
 
