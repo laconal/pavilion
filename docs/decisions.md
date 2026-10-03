@@ -78,6 +78,24 @@ the project owner — don't undo those without asking.
   `Identity()` column (GENERATED ... AS IDENTITY) would be the modern alternative.
 - `User` still has its own Integer `id` and doesn't inherit `BaseFields` (not requested).
 
+## Services
+
+- User: `pavilion add service redis` generates `RedisService` with create/update/get/
+  delete, and puts `REDIS_URL` (default `redis://localhost:6379`) in `.env` — creating
+  it, or appending when the key is missing.
+- Semantics chosen: create = set only if new (`NX`), update = only if it exists (`XX`),
+  keeping the TTL unless one is given (`KEEPTTL`); every method returns whether it did
+  anything; values are str (`decode_responses=True`); `ttl` is seconds or a timedelta.
+- Async client by default (FastAPI-style apps; models already use eager_defaults for
+  async), `--client sync` available. Earlier generated code (auth) is sync.
+- An existing `REDIS_URL` in `.env` is never changed (it may point at a real server).
+  `.env` goes next to the nearest pyproject.toml. Warn when git doesn't ignore it.
+- The generated code reads `os.environ` and doesn't load `.env` itself (no
+  python-dotenv / pydantic-settings dependency); docs say to use `uv run --env-file`.
+- File is `services/redis_service.py` — `services/redis.py` could shadow the `redis`
+  package when run from inside the folder.
+- `redis` is installed like SQLAlchemy is for models (`--no-install` to skip).
+
 ## Auth
 
 - User: transport means *how JWTs travel* — Authorization header or HttpOnly cookies.

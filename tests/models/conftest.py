@@ -2,14 +2,12 @@
 
 Set PAVILION_TEST_POSTGRES_URL to an admin URL (e.g. in CI) to use an existing server:
     postgresql://postgres:secret@localhost:5432/postgres
-Otherwise a throwaway postgres:18 container is started once per test session (and
-removed afterwards). Each test gets its own fresh database. Without either, the
+Otherwise a throwaway postgres:18 container is started once per test session
+(`start_container` in tests/conftest.py). Each test gets its own fresh database. Without either, the
 database tests are skipped.
 """
 
 import os
-import shutil
-import subprocess
 import time
 import uuid
 
@@ -34,32 +32,13 @@ def _wait_until_ready(url: str, timeout: float = 60) -> None:
 
 
 @pytest.fixture(scope="session")
-def postgres_admin_url():
+def postgres_admin_url(start_container):
     if url := os.environ.get("PAVILION_TEST_POSTGRES_URL"):
-        yield url
-        return
-    docker = shutil.which("docker")
-    if docker is None:
-        pytest.skip("needs Docker or PAVILION_TEST_POSTGRES_URL")
-
-    name = f"pavilion-test-{uuid.uuid4().hex[:8]}"
-    started = subprocess.run(
-        [docker, "run", "-d", "--rm", "--name", name, "-e", f"POSTGRES_PASSWORD={PASSWORD}",
-         "-p", "127.0.0.1::5432", IMAGE],
-        capture_output=True,
-        text=True,
-    )
-    if started.returncode != 0:
-        pytest.skip(f"couldn't start {IMAGE}: {started.stderr.strip()}")
-    try:
-        port = subprocess.run(
-            [docker, "port", name, "5432/tcp"], capture_output=True, text=True, check=True
-        ).stdout.splitlines()[0].rsplit(":", 1)[1]
-        url = f"postgresql://postgres:{PASSWORD}@127.0.0.1:{port}/postgres"
-        _wait_until_ready(url)
-        yield url
-    finally:
-        subprocess.run([docker, "rm", "-f", name], capture_output=True)
+        return url
+    port = start_container(IMAGE, 5432, {"POSTGRES_PASSWORD": PASSWORD})
+    url = f"postgresql://postgres:{PASSWORD}@127.0.0.1:{port}/postgres"
+    _wait_until_ready(url)
+    return url
 
 
 @pytest.fixture

@@ -5,6 +5,8 @@ A project scaffolder CLI (Typer + uv). Every command is `pavilion add <thing>`:
 - `add docker list | redis | postgres` — add a service to docker-compose.yml
 - `add keys [RS256|ES256|EdDSA]` — PEM signing key pair in `secrets/`
 - `add auth` — generate a framework-agnostic JWT auth package (`auth/`) + keys/secrets
+- `add service list | redis` — `RedisService` (async/sync) in `services/`, `REDIS_URL` in
+  `.env`, `uv add redis` if missing
 - `add model list | User | BaseFields` — SQLAlchemy models in `models/` (Postgres); runs
   `uv add sqlalchemy` if missing
 
@@ -19,8 +21,8 @@ More context, read when relevant:
 
 ```sh
 unset VIRTUAL_ENV            # the user's shell points it at another project; uv warns otherwise
-uv run pytest -q             # ~66 tests, ~16s (generated code runs in subprocesses;
-                             # model tests start a throwaway postgres:18 Docker container)
+uv run pytest -q             # ~88 tests, ~18s (generated code runs in subprocesses; model and
+                             # service tests start throwaway postgres:18 / redis:7-alpine containers)
 uv run --isolated --python 3.12 pytest -q   # oldest supported Python; .venv is left alone
 uv run pavilion --help
 uv build --wheel             # check templates ship: unzip -l dist/*.whl | grep templates
@@ -38,11 +40,14 @@ Feature folders, each with its command (`cli.py`) next to its logic:
 src/pavilion/
   cli.py      root Typer app; only wires feature commands under `add`
   ui.py       select() / text() prompts and fail(); no-TTY -> return the default
-  deps.py     ensure_dependency(): `uv add <pkg>` in the user's project unless declared
+  deps.py     ensure_dependency()/install(): `uv add <pkg>` in the user's project unless declared
+  env.py      ensure_env_var() for .env (never overwrites), is_git_ignored()
+  exports.py  ensure_export(): add a sorted `from .x import X as X` to a package __init__
   compose/    cli.py, file.py (ruamel round-trip edit), services/ (one module per service)
   keys/       cli.py (+ prompts reused by auth), generate.py (KeyPair, generate/check/ensure)
   auth/       cli.py, config.py (enums + AuthConfig), ttl.py, scaffold.py, templates/*.jinja
   models/     cli.py, scaffold.py (ModelSpec registry MODELS), templates/*.jinja
+  services/   cli.py, scaffold.py (AppServiceSpec registry SERVICES), templates/*.jinja
 tests/        mirrors features; conftest.py chdirs every test into tmp_path
 scripts/drive_tty.py   drive the real prompts in a pseudo-terminal
 ```
@@ -84,8 +89,13 @@ Dependency direction: `auth` -> `keys`; features never import the root `cli.py`.
   (`postgres`, `postgres-salon`) — never touch those.
 - Postgres `now()` is the transaction start time: a timestamp set by INSERT and by an
   UPDATE in the same transaction are equal. Commit between steps in tests.
-- Tests must never run a real `uv add`: use the `uv_calls` fixture
-  (tests/models/test_add_model.py), which fakes `deps.subprocess.run` / `shutil.which`.
+- Tests must never run a real `uv add`: use the `uv_calls` fixture (tests/conftest.py),
+  which replaces `deps._find_uv` / `deps._run` only (not subprocess globally — git and
+  the tests' own subprocesses must keep working).
+- Docker test services go through the `start_container(image, port, env)` fixture in
+  tests/conftest.py; Redis tests use `redis_url` (flushed per test, tests/services/conftest.py).
+- "service" means application code (`add service`), "docker" means compose infrastructure
+  (`add docker`). `pavilion/compose/services/` holds docker specs, `pavilion/services/` app ones.
 - Jinja env uses `trim_blocks`, `lstrip_blocks`, `StrictUndefined`; a missing context
   variable is an error, not an empty string.
 - questionary menus wrap around (UP from the first item selects the last).

@@ -91,6 +91,35 @@ RSA size (RS256 and some key pair still missing) -> access TTL -> refresh TTL ->
 - Generated `User`: SQLAlchemy 2.0 typed `Mapped[...]` columns, `@validates("login")`
   lowercasing via `normalize_login()`, `active` with `default=True` + `server_default=true()`.
 
+## services (`add service`)
+
+- `scaffold.py`: `AppServiceSpec(name, class_name, module, package, env_var, env_default,
+  description, docker_service)`, registry `SERVICES`; `Client` (async/sync).
+  `scaffold_service` fails if the file exists (unless force), creates `__init__.py` when
+  missing or adds a sorted re-export (`exports.ensure_export`). Template context:
+  `is_async`, `async_`/`await_` ("async "/"await " or ""), `module`, `class_name`,
+  `default_url`.
+- `cli.py`: group with `list` + one subcommand per spec (`--client`, `-d services`,
+  `--install/--no-install`, `--force`). Flow: existing file? -> client prompt -> render
+  -> `.env` at the project root (`deps.project_root`): `env.ensure_env_var` + git-ignore
+  warning -> `deps.install(package)` -> hint `pavilion add docker <x>` when the compose
+  file lacks `docker_service`.
+- Generated `RedisService`: `Redis.from_url(url or $REDIS_URL or default,
+  decode_responses=True)`; create = `SET NX [EX]`, update = `SET XX KEEPTTL` or
+  `SET XX EX`, delete = `DEL > 0`; async/sync context manager + `close()`.
+
+## Shared helpers
+
+- `deps.py`: `find_pyproject`, `project_root`, `ensure_dependency` (status enum),
+  `install(package)` (prints the outcome; FAILED exits 1). uv is only reached through
+  `_find_uv()` / `_run()`.
+- `env.py`: `ensure_env_var(path, name, value)` -> CREATED / ADDED / EXISTS (matches
+  `NAME=` and `export NAME=`; never rewrites a value); `is_git_ignored(path)` via
+  `git check-ignore` (None outside a repo).
+- `exports.py`: `ensure_export(init, module, name)` inserts
+  `from .module import name as name` among the relative imports, sorted, unless the file
+  already mentions `name`.
+
 ## The generated auth package
 
 Framework-agnostic, synchronous, relative imports (works under any package name):

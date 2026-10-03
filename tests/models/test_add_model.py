@@ -6,7 +6,6 @@ import textwrap
 import pytest
 from typer.testing import CliRunner
 
-from pavilion import deps
 from pavilion.cli import app
 
 runner = CliRunner()
@@ -24,24 +23,6 @@ def run_generated(tmp_path, script, database_url=None):
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "ok"
-
-
-class FakeUv(list):
-    """Records `uv add` calls instead of running them; set `returncode` to simulate failure."""
-
-    returncode = 0
-
-    def run(self, command, cwd):
-        self.append((command, cwd))
-        return self
-
-
-@pytest.fixture
-def uv_calls(monkeypatch):
-    fake = FakeUv()
-    monkeypatch.setattr(deps.shutil, "which", lambda name: "/usr/bin/uv")
-    monkeypatch.setattr(deps.subprocess, "run", fake.run)
-    return fake
 
 
 USER_MODEL_CHECK = """

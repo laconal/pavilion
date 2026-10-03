@@ -1,10 +1,11 @@
 """Rendering SQLAlchemy models into a `models` package."""
 
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from jinja2 import Environment, PackageLoader, StrictUndefined
+
+from pavilion.exports import ensure_export
 
 
 @dataclass(frozen=True)
@@ -60,17 +61,6 @@ _env = Environment(
 )
 
 
-def _add_export(text: str, line: str, module: str) -> str:
-    """Insert `line` among the `from .x import` lines, keeping them sorted by module."""
-    lines = text.splitlines()
-    imports = [i for i, existing in enumerate(lines) if re.match(r"from \.\w+ import ", existing)]
-    if not imports:
-        return "\n".join([*lines, line]) + "\n"
-    after = [i for i in imports if re.match(r"from \.(\w+)", lines[i])[1] > module]
-    lines.insert(after[0] if after else imports[-1] + 1, line)
-    return "\n".join(lines) + "\n"
-
-
 def scaffold_model(spec: ModelSpec, directory: Path, *, force: bool = False) -> ModelResult:
     """Write the model (and base.py/__init__.py if missing) into `directory`.
 
@@ -94,8 +84,5 @@ def scaffold_model(spec: ModelSpec, directory: Path, *, force: bool = False) -> 
     created.append(model_path)
 
     init = directory / "__init__.py"
-    exported = None
-    if init in kept and not re.search(rf"\b{spec.name}\b", text := init.read_text()):
-        exported = f"from .{spec.module} import {spec.name} as {spec.name}"
-        init.write_text(_add_export(text, exported, spec.module))
+    exported = ensure_export(init, spec.module, spec.name) if init in kept else None
     return ModelResult(created=created, kept=kept, exported=exported)

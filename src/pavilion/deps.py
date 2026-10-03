@@ -7,6 +7,10 @@ import tomllib
 from enum import Enum, auto
 from pathlib import Path
 
+import typer
+
+from pavilion import ui
+
 
 class DependencyStatus(Enum):
     ALREADY_PRESENT = auto()
@@ -28,6 +32,12 @@ def find_pyproject(start: Path) -> Path | None:
     return None
 
 
+def project_root(start: Path) -> Path:
+    """The directory of the nearest pyproject.toml, or `start` if there is none."""
+    pyproject = find_pyproject(start)
+    return pyproject.parent if pyproject else start
+
+
 def declared_dependencies(pyproject: Path) -> set[str]:
     """Normalized names of the runtime dependencies in `[project] dependencies`."""
     data = tomllib.loads(pyproject.read_text())
@@ -37,6 +47,15 @@ def declared_dependencies(pyproject: Path) -> set[str]:
         if match := re.match(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)", requirement):
             names.add(_normalize(match[1]))
     return names
+
+
+# The only two places that touch uv; tests replace them (see tests/conftest.py).
+def _find_uv() -> str | None:
+    return shutil.which("uv")
+
+
+def _run(command: list[str], cwd: Path) -> int:
+    return subprocess.run(command, cwd=cwd).returncode
 
 
 def ensure_dependency(package: str, start: Path) -> DependencyStatus:
@@ -49,8 +68,37 @@ def ensure_dependency(package: str, start: Path) -> DependencyStatus:
         return DependencyStatus.NO_PROJECT
     if _normalize(package) in declared_dependencies(pyproject):
         return DependencyStatus.ALREADY_PRESENT
-    uv = shutil.which("uv")
+    uv = _find_uv()
     if uv is None:
         return DependencyStatus.NO_UV
-    result = subprocess.run([uv, "add", package], cwd=pyproject.parent)
-    return DependencyStatus.ADDED if result.returncode == 0 else DependencyStatus.FAILED
+    if _run([uv, "add", package], pyproject.parent) == 0:
+        return DependencyStatus.ADDED
+    return DependencyStatus.FAILED
+
+
+def install(package: str) -> None:
+    """ensure_dependency() for the current directory, reporting the outcome.
+
+    Exits with an error if `uv add` fails; whatever was generated before stays.
+    """
+    match ensure_dependency(package, Path.cwd()):
+        case DependencyStatus.ADDED:
+            typer.secho(f"Added {package} to the project.", fg=typer.colors.GREEN)
+        case DependencyStatus.ALREADY_PRESENT:
+            typer.echo(f"{package} is already a project dependency.")
+        case DependencyStatus.NO_PROJECT:
+            typer.secho(
+                f"No pyproject.toml found; install it yourself: uv add {package}",
+                fg=typer.colors.YELLOW,
+            )
+        case DependencyStatus.NO_UV:
+            typer.secho(
+                f"uv not found; install it yourself: pip install {package}",
+                fg=typer.colors.YELLOW,
+            )
+        case DependencyStatus.FAILED:
+            raise ui.fail(
+                f"`uv add {package}` failed (see above); the generated files were kept. "
+                "Fix the problem and run it again.",
+                color=typer.colors.RED,
+            )

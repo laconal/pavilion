@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from pavilion import ui
-from pavilion.deps import DependencyStatus, ensure_dependency
+from pavilion.deps import install as install_package
 from pavilion.models.scaffold import MODELS, ModelExistsError, ModelSpec, scaffold_model
 
 PACKAGE = "sqlalchemy"
@@ -37,31 +37,6 @@ ForceOption = Annotated[
 ]
 
 
-def _install_sqlalchemy() -> None:
-    status = ensure_dependency(PACKAGE, Path.cwd())
-    match status:
-        case DependencyStatus.ADDED:
-            typer.secho(f"Added {PACKAGE} to the project.", fg=typer.colors.GREEN)
-        case DependencyStatus.ALREADY_PRESENT:
-            typer.echo(f"{PACKAGE} is already a project dependency.")
-        case DependencyStatus.NO_PROJECT:
-            typer.secho(
-                f"No pyproject.toml found; install it yourself: uv add {PACKAGE}",
-                fg=typer.colors.YELLOW,
-            )
-        case DependencyStatus.NO_UV:
-            typer.secho(
-                f"uv not found; install it yourself: pip install {PACKAGE}",
-                fg=typer.colors.YELLOW,
-            )
-        case DependencyStatus.FAILED:
-            raise ui.fail(
-                f"`uv add {PACKAGE}` failed (see above); the model files were still "
-                "generated. Fix the problem and run it again.",
-                color=typer.colors.RED,
-            )
-
-
 def _add(spec: ModelSpec, directory: Path, install: bool, force: bool) -> None:
     try:
         result = scaffold_model(spec, directory, force=force)
@@ -78,7 +53,7 @@ def _add(spec: ModelSpec, directory: Path, install: bool, force: bool) -> None:
             typer.echo(f"  {path} (kept existing)")
 
     if install:
-        _install_sqlalchemy()
+        install_package(PACKAGE)
 
 
 @model_app.callback(invoke_without_command=True)

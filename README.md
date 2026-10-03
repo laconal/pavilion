@@ -101,6 +101,25 @@ timezone-aware. Each new model is added to `models/__init__.py` in sorted order.
 
 The models target PostgreSQL.
 
+### Services
+
+```sh
+pavilion add service list             # show available services
+pavilion add service redis            # RedisService in services/ (-d to change)
+pavilion add service redis --client sync --no-install
+```
+
+`RedisService` wraps redis-py (async by default, `--client sync` for a blocking client):
+`create` (only if the key is new), `get`, `update` (only existing keys; keeps the expiry
+unless a new `ttl` is given) and `delete`, each returning whether it did anything.
+Use it as `async with RedisService() as redis: ...`.
+
+It reads `REDIS_URL`, so pavilion adds `REDIS_URL=redis://localhost:6379` to the project's
+`.env` (created if missing; an existing value is never changed) and warns if `.env` isn't
+git-ignored. `.env` isn't loaded automatically: use `uv run --env-file .env ...` or
+Compose's `env_file`. The `redis` package is added with `uv add` if it's missing, and if
+the compose file has no Redis yet, pavilion suggests `pavilion add docker redis`.
+
 ## Development
 
 Each `pavilion add ...` feature lives in its own folder under `src/pavilion/`, with its
@@ -109,6 +128,7 @@ command (`cli.py`) next to the logic behind it:
 ```
 cli.py              root app; wires the feature commands together
 ui.py               shared menus, prompts and error exits
+services/           add service   (scaffold.py: AppServiceSpec registry; templates/)
 compose/            add docker    (file.py edits the compose file; services/ has one module per service)
 keys/               add keys      (generate.py)
 auth/               add auth      (config.py, scaffold.py, templates/)
@@ -122,9 +142,11 @@ register it in `compose/services/__init__.py`. Tests mirror this layout under `t
 uv run pytest
 ```
 
-The model tests run against a real PostgreSQL: a throwaway `postgres:18` Docker
-container, or the server in `PAVILION_TEST_POSTGRES_URL` (an admin URL such as
-`postgresql://postgres:secret@localhost:5432/postgres`). Without either they're skipped.
+The model and service tests run against real PostgreSQL and Redis: throwaway
+`postgres:18` / `redis:7-alpine` Docker containers, or the servers in
+`PAVILION_TEST_POSTGRES_URL` (an admin URL such as
+`postgresql://postgres:secret@localhost:5432/postgres`) and `PAVILION_TEST_REDIS_URL`
+(its database is flushed). Without either they're skipped.
 
 ## License
 

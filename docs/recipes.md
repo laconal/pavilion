@@ -18,6 +18,16 @@
    `create_engine(os.environ["DATABASE_URL"])` + `create_all`. Extra packages go
    through `deps.ensure_dependency`.
 
+## Add an app service (`add service <name>`)
+
+1. `src/pavilion/services/templates/<module>.py.jinja` — use `{{ async_ }}def` /
+   `{{ await_ }}` so one template serves both clients; read settings from `os.environ`
+   with the spec's default.
+2. An `AppServiceSpec` in `services/scaffold.py`, added to `SERVICES` (package to
+   install, env var + default for `.env`, matching `add docker` service for the hint).
+3. Test against the real thing: a fixture like `redis_url` built on `start_container`,
+   and one flow script run for both `--client async` and `--client sync`.
+
 ## Add a new `pavilion add <feature>`
 
 1. `src/pavilion/<feature>/` with `__init__.py` (one-line docstring), `cli.py` (the

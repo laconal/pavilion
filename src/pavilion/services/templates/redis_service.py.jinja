@@ -1,0 +1,73 @@
+"""Redis key-value storage: create, get, update and delete string values."""
+
+import os
+from datetime import timedelta
+from typing import Self
+
+from {{ "redis.asyncio" if is_async else "redis" }} import Redis
+
+DEFAULT_URL = "{{ default_url }}"
+
+
+class RedisService:
+    """create/get/update/delete on top of a Redis client.
+
+    The URL comes from the REDIS_URL environment variable unless passed in. .env isn't
+    read automatically: load it with e.g. `uv run --env-file .env ...` or Compose's
+    `env_file`, otherwise the localhost default is used.
+{% if is_async %}
+    Use it as `async with RedisService() as redis: ...`, or `await close()` when done.
+{% else %}
+    Use it as `with RedisService() as redis: ...`, or call close() when done.
+{% endif %}
+    """
+
+    def __init__(self, url: str | None = None) -> None:
+        # decode_responses: values come back as str instead of bytes.
+        self.client = Redis.from_url(
+            url or os.environ.get("REDIS_URL", DEFAULT_URL), decode_responses=True
+        )
+
+    {{ async_ }}def create(self, key: str, value: str, ttl: int | timedelta | None = None) -> bool:
+        """Store `value` under a new key; False if the key already exists.
+
+        `ttl` is the expiry in seconds (or a timedelta); None means it never expires.
+        """
+        return bool({{ await_ }}self.client.set(key, value, ex=ttl, nx=True))
+
+    {{ async_ }}def get(self, key: str) -> str | None:
+        """The value of `key`, or None if it doesn't exist (or has expired)."""
+        return {{ await_ }}self.client.get(key)
+
+    {{ async_ }}def update(self, key: str, value: str, ttl: int | timedelta | None = None) -> bool:
+        """Replace the value of an existing key; False if the key doesn't exist.
+
+        Without `ttl` the key keeps its current expiry.
+        """
+        if ttl is None:
+            return bool({{ await_ }}self.client.set(key, value, xx=True, keepttl=True))
+        return bool({{ await_ }}self.client.set(key, value, xx=True, ex=ttl))
+
+    {{ async_ }}def delete(self, key: str) -> bool:
+        """Remove `key`; False if it didn't exist."""
+        return {{ await_ }}self.client.delete(key) > 0
+
+{% if is_async %}
+    async def close(self) -> None:
+        await self.client.aclose()
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(self, *exc_info: object) -> None:
+        await self.close()
+{% else %}
+    def close(self) -> None:
+        self.client.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()
+{% endif %}
