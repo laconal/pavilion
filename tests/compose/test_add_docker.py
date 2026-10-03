@@ -11,7 +11,7 @@ def load(path):
 
 
 def test_creates_compose_file(tmp_path):
-    result = runner.invoke(app, ["add", "service", "redis"])
+    result = runner.invoke(app, ["add", "docker", "redis"])
 
     assert result.exit_code == 0, result.output
     data = load(tmp_path / "docker-compose.yml")
@@ -28,7 +28,7 @@ def test_appends_to_existing_file_and_keeps_comments(tmp_path):
         "    image: nginx  # frontend\n"
     )
 
-    result = runner.invoke(app, ["add", "service", "redis"])
+    result = runner.invoke(app, ["add", "docker", "redis"])
 
     assert result.exit_code == 0, result.output
     assert not (tmp_path / "docker-compose.yml").exists()
@@ -39,22 +39,22 @@ def test_appends_to_existing_file_and_keeps_comments(tmp_path):
 
 
 def test_refuses_to_overwrite_without_force(tmp_path):
-    runner.invoke(app, ["add", "service", "redis"])
+    runner.invoke(app, ["add", "docker", "redis"])
     compose = tmp_path / "docker-compose.yml"
     compose.write_text(compose.read_text().replace("redis:8-alpine", "redis:custom"))
 
-    result = runner.invoke(app, ["add", "service", "redis"])
+    result = runner.invoke(app, ["add", "docker", "redis"])
     assert result.exit_code == 1
     assert load(compose)["services"]["redis"]["image"] == "redis:custom"
 
-    result = runner.invoke(app, ["add", "service", "redis", "--force"])
+    result = runner.invoke(app, ["add", "docker", "redis", "--force"])
     assert result.exit_code == 0
     assert load(compose)["services"]["redis"]["image"] == "redis:8-alpine"
 
 
 def test_adds_postgres_next_to_redis(tmp_path):
-    runner.invoke(app, ["add", "service", "redis"])
-    result = runner.invoke(app, ["add", "service", "postgres"])
+    runner.invoke(app, ["add", "docker", "redis"])
+    result = runner.invoke(app, ["add", "docker", "postgres"])
 
     assert result.exit_code == 0, result.output
     data = load(tmp_path / "docker-compose.yml")
@@ -65,7 +65,7 @@ def test_adds_postgres_next_to_redis(tmp_path):
 
 
 def test_list_services():
-    result = runner.invoke(app, ["add", "service", "list"])
+    result = runner.invoke(app, ["add", "docker", "list"])
 
     assert result.exit_code == 0, result.output
     assert "redis" in result.output
@@ -73,14 +73,14 @@ def test_list_services():
 
 
 def test_unknown_service():
-    result = runner.invoke(app, ["add", "service", "nope"])
+    result = runner.invoke(app, ["add", "docker", "nope"])
 
     assert result.exit_code != 0
     assert "No such command" in result.output
 
 
 def test_version_option_picks_image_and_data_dir(tmp_path):
-    result = runner.invoke(app, ["add", "service", "postgres", "--version", "17"])
+    result = runner.invoke(app, ["add", "docker", "postgres", "--version", "17"])
 
     assert result.exit_code == 0, result.output
     postgres = load(tmp_path / "docker-compose.yml")["services"]["postgres"]
@@ -89,7 +89,7 @@ def test_version_option_picks_image_and_data_dir(tmp_path):
 
 
 def test_defaults_to_newest_version_without_a_terminal(tmp_path):
-    result = runner.invoke(app, ["add", "service", "postgres"])
+    result = runner.invoke(app, ["add", "docker", "postgres"])
 
     assert result.exit_code == 0, result.output
     postgres = load(tmp_path / "docker-compose.yml")["services"]["postgres"]
@@ -98,7 +98,7 @@ def test_defaults_to_newest_version_without_a_terminal(tmp_path):
 
 
 def test_rejects_unknown_version():
-    result = runner.invoke(app, ["add", "service", "postgres", "--version", "9"])
+    result = runner.invoke(app, ["add", "docker", "postgres", "--version", "9"])
 
     assert result.exit_code == 2
     assert "Invalid value" in result.output

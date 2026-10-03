@@ -11,12 +11,12 @@ uv tool install .        # or: uv run pavilion ...
 ## Usage
 
 ```sh
-pavilion add service list             # show available services
-pavilion add service redis            # add redis to the compose file in the current dir
-pavilion add service postgres        # pick a version with the arrow keys
-pavilion add service postgres --version 17   # non-interactive
-pavilion add service redis -f infra/compose.yaml
-pavilion add service redis --force    # overwrite an existing redis service
+pavilion add docker list              # show available services
+pavilion add docker redis             # add redis to the compose file in the current dir
+pavilion add docker postgres          # pick a version with the arrow keys
+pavilion add docker postgres --version 17    # non-interactive
+pavilion add docker redis -f infra/compose.yaml
+pavilion add docker redis --force     # overwrite an existing redis service
 ```
 
 Pavilion edits the first of `compose.yaml`, `compose.yml`, `docker-compose.yaml` or
@@ -109,7 +109,7 @@ command (`cli.py`) next to the logic behind it:
 ```
 cli.py              root app; wires the feature commands together
 ui.py               shared menus, prompts and error exits
-compose/            add service   (file.py edits the compose file; services/ has one module per service)
+compose/            add docker    (file.py edits the compose file; services/ has one module per service)
 keys/               add keys      (generate.py)
 auth/               add auth      (config.py, scaffold.py, templates/)
 ```

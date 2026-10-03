@@ -13,8 +13,15 @@ the project owner — don't undo those without asking.
 
 ## CLI shape
 
-- `pavilion add service <name>` is a command group with one subcommand per service, not
-  a `name` argument — so `add service list` can coexist with service names.
+- User: compose services are added with `pavilion add docker <name>` (renamed from
+  `add service`, which was in 0.1.x releases — a breaking change). The code keeps the
+  `compose/` folder and `add_service()` names, since they edit the compose file.
+- User: `pavilion add service ...` is reserved for application-level service code to
+  come — e.g. a Redis service (get/set/delete helpers), a RabbitMQ service, a service
+  layer. So "docker" means infrastructure in docker-compose, "service" means code.
+  Don't add a backward-compatible `add service` alias for the docker command.
+- `add docker` / `add model` are command groups with one subcommand per entry, not a
+  `name` argument — so `list` can coexist with the names.
 - Interactive first, flags for everything. Without a TTY every prompt takes its default,
   which keeps CI/scripts working and makes CliRunner tests deterministic.
 - Arrow-key menus come from questionary; Typer's own prompt can only take typed input.

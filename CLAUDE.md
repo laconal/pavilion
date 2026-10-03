@@ -2,7 +2,7 @@
 
 A project scaffolder CLI (Typer + uv). Every command is `pavilion add <thing>`:
 
-- `add service list | redis | postgres` — add a service to the compose file
+- `add docker list | redis | postgres` — add a service to docker-compose.yml
 - `add keys [RS256|ES256|EdDSA]` — PEM signing key pair in `secrets/`
 - `add auth` — generate a framework-agnostic JWT auth package (`auth/`) + keys/secrets
 - `add model list | User | BaseFields` — SQLAlchemy models in `models/` (Postgres); runs

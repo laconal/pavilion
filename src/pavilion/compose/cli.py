@@ -1,4 +1,4 @@
-"""`pavilion add service ...`"""
+"""`pavilion add docker ...`"""
 
 from enum import StrEnum
 from pathlib import Path
@@ -12,7 +12,7 @@ from pavilion import ui
 from pavilion.compose.file import ServiceExistsError, add_service, find_compose_file, has_service
 from pavilion.compose.services import SERVICES, ServiceSpec
 
-service_app = typer.Typer(help="Add a service to docker-compose.yml.", no_args_is_help=True)
+docker_app = typer.Typer(help="Add a service to docker-compose.yml.", no_args_is_help=True)
 
 FileOption = Annotated[
     Path | None,
@@ -28,7 +28,7 @@ ForceOption = Annotated[
 ]
 
 
-@service_app.command("list")
+@docker_app.command("list")
 def list_services() -> None:
     """Show available services."""
     table = Table("Service", "Versions", "Image", "Description", box=None, header_style="bold")
@@ -94,6 +94,6 @@ def _make_add_command(spec: ServiceSpec) -> Callable[..., None]:
     return command
 
 
-# One subcommand per registered service: `pavilion add service redis`, etc.
+# One subcommand per registered service: `pavilion add docker redis`, etc.
 for _spec in SERVICES.values():
-    service_app.command(_spec.name, help=_spec.description)(_make_add_command(_spec))
+    docker_app.command(_spec.name, help=_spec.description)(_make_add_command(_spec))

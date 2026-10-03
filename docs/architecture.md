@@ -6,7 +6,7 @@
 `main()` -> `cli.app()`. `uv run` installs the package editable (a `.pth` pointing at
 `src/`), so code changes apply without reinstalling.
 
-`cli.py` builds `app` -> `add` and attaches: `compose.cli.service_app` as `add service`,
+`cli.py` builds `app` -> `add` and attaches: `compose.cli.docker_app` as `add docker`,
 `keys.cli.add_keys` as `add keys`, `auth.cli.add_auth` as `add auth`.
 
 ## ui.py
@@ -17,7 +17,7 @@
 - `interactive()` is `sys.stdin.isatty()`; both prompts return the default without a TTY.
 - `fail(message, color)` prints to stderr and returns `typer.Exit(1)` to `raise`.
 
-## compose (`add service`)
+## compose (`add docker`)
 
 - `services/base.py` `ServiceSpec(name, description, image_template, versions, build, volumes)`.
   `versions` is newest-first (first = default). `build(version)` returns the service body
@@ -73,7 +73,7 @@ RSA size (RS256 and some key pair still missing) -> access TTL -> refresh TTL ->
   registry `MODELS`. `scaffold_model` fails if `<module>.py` exists (unless force), creates
   `base.py` / `__init__.py` only when missing (never overwritten, even with force), and
   reports `needs_export` when an existing `__init__.py` doesn't mention the model.
-- `cli.py`: `model_app` group (like `add service`): `list` plus one subcommand per
+- `cli.py`: `model_app` group (like `add docker`): `list` plus one subcommand per
   `MODELS` entry, each with `-d`, `--install/--no-install`, `--force`. Names are
   case-insensitive via `context_settings={"token_normalize_func": ...}` mapping any case
   to the registered name. No subcommand -> menu in a TTY, help otherwise. After writing,

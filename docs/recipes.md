@@ -5,7 +5,7 @@
 1. `src/pavilion/compose/services/<name>.py`: a `_build(version) -> dict` (service body
    without `image`) and a `ServiceSpec` (versions newest first, named volumes).
 2. Register it in `compose/services/__init__.py` (`SERVICES`).
-3. Test in `tests/compose/test_add_service.py`; `add service list` and `--help` pick it
+3. Test in `tests/compose/test_add_docker.py`; `add docker list` and `--help` pick it
    up automatically. If you can, validate output with `docker compose config -q`.
 
 ## Add a model
