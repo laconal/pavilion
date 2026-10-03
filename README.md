@@ -25,6 +25,14 @@ the postgres credentials (SCRAM), supports prepared statements, and listens on
 `localhost:6432`: point the app's database URL there, and run migrations against
 postgres directly (5432).
 
+`pavilion add docker celery` adds `celery-worker` and `celery-beat`, built from the
+project's `./Dockerfile` (it warns if there isn't one) and using the compose `redis`
+service as broker (db 0) and result backend (db 1), so add Redis first. It asks for the
+`celery -A` app (default `app.worker`, or `-A app.worker:celery_app`). Celery reads
+`CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND` from the environment, so a plain
+`Celery("app")` needs no broker settings in code. `.env` is loaded if present, with
+`REDIS_URL` pointed at the `redis` container. Run a single beat.
+
 Pavilion edits the first of `compose.yaml`, `compose.yml`, `docker-compose.yaml` or
 `docker-compose.yml` it finds, or creates `docker-compose.yml`. Existing comments and
 ordering are preserved.

@@ -26,7 +26,13 @@
   -> postgres, for `depends_on`); checked before prompting, fails with the
   `pavilion add docker <x>` command to run. `ServiceSpec.tags` maps a version to its image
   tag when they differ (`1.24.1` -> `v1.24.1-p1`).
-- `services/__init__.py` `SERVICES` registry. `cli.py` registers `list` plus one
+- `services/__init__.py` `SERVICES` registry.
+- Celery doesn't fit `ServiceSpec` (no image/versions, two services, an `-A` app option),
+  so `compose/services/celery.py` exposes `celery_services(app)` and `cli.py` has a
+  dedicated `add docker celery` command (plus a manual row in `list`). It writes through
+  `file.add_services(path, {name: body}, volumes, force)`, which `add_service` also uses;
+  it raises `ServiceExistsError` for the first taken name before writing.
+- `_require(names, service, path)` in cli.py: shared "needs X in the compose file" check. `cli.py` registers `list` plus one
   subcommand per spec, each with a `--version` option restricted by a generated `StrEnum`.
 - `file.py`: `find_compose_file` uses docker's lookup order (`compose.yaml`, `compose.yml`,
   `docker-compose.yaml`, `docker-compose.yml`), else creates `docker-compose.yml`.

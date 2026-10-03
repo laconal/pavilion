@@ -46,6 +46,17 @@ the project owner — don't undo those without asking.
   postgres healthy, `pg_isready` healthcheck. Credentials reuse the postgres service's
   `${POSTGRES_USER:-postgres}`-style variables, so a password must be URL-safe.
 
+- Celery: `add docker celery` = `celery-worker` + `celery-beat`, `build: .` (they run
+  the project's code), Redis broker db 0 / results db 1 via `CELERY_BROKER_URL` /
+  `CELERY_RESULT_BACKEND` (Celery 5 reads both from the environment — verified), so the
+  generated compose needs no Celery code changes. `env_file: .env` (required: false) plus
+  `REDIS_URL=redis://redis:6379` because `.env`'s localhost value is wrong in a container.
+  Worker healthcheck `celery inspect ping -d celery@$$HOSTNAME` with `start_interval`;
+  beat keeps its schedule file in /tmp and must run as one instance. `-A` defaults to
+  `app.worker`. Verified end to end: a task sent from the host returned through the
+  result backend, and beat's schedule ran on the worker.
+- Port-mapping quoting requires a digit, so `build: .` stays unquoted.
+
 ## Keys
 
 - JWA algorithm names (RS256, not "rsa256"); input is case-insensitive.

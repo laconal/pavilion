@@ -18,6 +18,11 @@
    `create_engine(os.environ["DATABASE_URL"])` + `create_all`. Extra packages go
    through `deps.ensure_dependency`.
 
+For something that isn't one image with versions (several services, built from the
+project, extra options), follow `add docker celery`: a module in `compose/services/`
+returning `{name: body}`, a dedicated command in `compose/cli.py` writing through
+`add_services`, and a manual row in `list_services`.
+
 ## Add an app service (`add service <name>`)
 
 1. `src/pavilion/services/templates/<module>.py.jinja` — use `{{ async_ }}def` /

@@ -15,7 +15,7 @@ COMPOSE_FILENAMES = ("compose.yaml", "compose.yml", "docker-compose.yaml", "dock
 DEFAULT_FILENAME = "docker-compose.yml"
 
 # e.g. "6379:6379", "127.0.0.1:8080:80", "53:53/udp"
-PORT_MAPPING = re.compile(r"[\d.:-]+(/(tcp|udp))?")
+PORT_MAPPING = re.compile(r"(?=.*\d)[\d.:-]+(/(tcp|udp))?")  # needs a digit: not "."
 
 
 class ServiceExistsError(Exception):
@@ -68,24 +68,38 @@ def has_service(path: Path, name: str) -> bool:
     return name in (_load(_yaml(), path).get("services") or {})
 
 
-def add_service(path: Path, spec: ServiceSpec, version: str, *, force: bool = False) -> None:
+def add_services(
+    path: Path,
+    services: dict[str, dict[str, Any]],
+    volumes: dict[str, Any] | None = None,
+    *,
+    force: bool = False,
+) -> None:
+    """Add (or with force, replace) compose services and any named volumes they need.
+
+    Raises ServiceExistsError, naming the first existing service, before writing anything.
+    """
     yaml = _yaml()
     data = _load(yaml, path)
 
     # `services:` with no entries loads as None, so treat it like a missing key.
     if data.get("services") is None:
         data["services"] = CommentedMap()
-    services = data["services"]
-    if spec.name in services and not force:
-        raise ServiceExistsError(spec.name)
-    services[spec.name] = _to_yaml_node(spec.service(version))
+    existing = data["services"]
+    if not force and (taken := [name for name in services if name in existing]):
+        raise ServiceExistsError(taken[0])
+    for name, body in services.items():
+        existing[name] = _to_yaml_node(body)
 
-    if spec.volumes:
+    if volumes:
         if data.get("volumes") is None:
             data["volumes"] = CommentedMap()
-        volumes = data["volumes"]
-        for name, config in spec.volumes.items():
-            if name not in volumes:
-                volumes[name] = _to_yaml_node(config)
+        for name, config in volumes.items():
+            if name not in data["volumes"]:
+                data["volumes"][name] = _to_yaml_node(config)
 
     yaml.dump(data, path)
+
+
+def add_service(path: Path, spec: ServiceSpec, version: str, *, force: bool = False) -> None:
+    add_services(path, {spec.name: spec.service(version)}, spec.volumes, force=force)

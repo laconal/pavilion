@@ -75,6 +75,7 @@ def test_list_services():
     assert "redis" in result.output
     assert "postgres" in result.output
     assert "pgbouncer" in result.output
+    assert any(line.split()[:3] == ["celery", "-", "./Dockerfile"] for line in result.output.splitlines())
 
 
 def test_unknown_service():
@@ -156,7 +157,7 @@ def test_long_values_stay_on_one_line(tmp_path):
 
 @pytest.mark.skipif(shutil.which("docker") is None, reason="needs Docker")
 def test_generated_file_passes_docker_compose_config(tmp_path):
-    for service in ["redis", "postgres", "pgbouncer"]:
+    for service in ["redis", "postgres", "pgbouncer", "celery"]:
         runner.invoke(app, ["add", "docker", service])
 
     result = subprocess.run(
@@ -167,3 +168,82 @@ def test_generated_file_passes_docker_compose_config(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_celery_requires_redis(tmp_path):
+    result = runner.invoke(app, ["add", "docker", "celery"])
+
+    assert result.exit_code == 1
+    assert "celery needs redis" in result.output
+    assert "pavilion add docker redis" in result.output
+    assert not (tmp_path / "docker-compose.yml").exists()
+
+
+def test_celery_worker_and_beat(tmp_path):
+    runner.invoke(app, ["add", "docker", "redis"])
+
+    result = runner.invoke(app, ["add", "docker", "celery", "-A", "project.tasks:celery_app"])
+
+    assert result.exit_code == 0, result.output
+    assert "added services 'celery-worker', 'celery-beat'" in result.output
+    services = load(tmp_path / "docker-compose.yml")["services"]
+    worker, beat = services["celery-worker"], services["celery-beat"]
+    for service in (worker, beat):
+        assert service["build"] == "."
+        assert service["depends_on"] == {"redis": {"condition": "service_healthy"}}
+        assert service["env_file"] == [{"path": ".env", "required": False}]
+        assert service["environment"] == {
+            "CELERY_BROKER_URL": "redis://redis:6379/0",
+            "CELERY_RESULT_BACKEND": "redis://redis:6379/1",
+            "REDIS_URL": "redis://redis:6379",
+        }
+    assert worker["command"] == "celery -A project.tasks:celery_app worker --loglevel=info"
+    assert worker["healthcheck"]["test"] == [
+        "CMD-SHELL", "celery -A project.tasks:celery_app inspect ping -d celery@$$HOSTNAME"
+    ]
+    assert beat["command"] == (
+        "celery -A project.tasks:celery_app beat --loglevel=info"
+        " --schedule /tmp/celerybeat-schedule"
+    )
+    assert "    build: .\n" in (tmp_path / "docker-compose.yml").read_text()  # not quoted
+
+
+def test_celery_app_defaults_without_a_terminal(tmp_path):
+    runner.invoke(app, ["add", "docker", "redis"])
+
+    runner.invoke(app, ["add", "docker", "celery"])
+
+    worker = load(tmp_path / "docker-compose.yml")["services"]["celery-worker"]
+    assert worker["command"] == "celery -A app.worker worker --loglevel=info"
+
+
+@pytest.mark.parametrize("bad", ["bad app", "app/worker", "app.", "1app"])
+def test_celery_rejects_invalid_app(bad):
+    result = runner.invoke(app, ["add", "docker", "celery", "-A", bad])
+
+    assert result.exit_code == 2
+    assert "isn't a module path" in result.output
+
+
+def test_celery_refuses_to_overwrite_without_force(tmp_path):
+    runner.invoke(app, ["add", "docker", "redis"])
+    runner.invoke(app, ["add", "docker", "celery", "-A", "first"])
+
+    result = runner.invoke(app, ["add", "docker", "celery", "-A", "second"])
+    assert result.exit_code == 1
+    assert "celery-worker, celery-beat already in" in result.output
+
+    result = runner.invoke(app, ["add", "docker", "celery", "-A", "second", "--force"])
+    assert result.exit_code == 0, result.output
+    services = load(tmp_path / "docker-compose.yml")["services"]
+    assert services["celery-beat"]["command"].startswith("celery -A second beat")
+
+
+def test_celery_warns_without_dockerfile(tmp_path):
+    runner.invoke(app, ["add", "docker", "redis"])
+    result = runner.invoke(app, ["add", "docker", "celery"])
+    assert "No Dockerfile next to docker-compose.yml" in result.output
+
+    (tmp_path / "Dockerfile").write_text("FROM python:3.12-slim\n")
+    result = runner.invoke(app, ["add", "docker", "celery", "--force"])
+    assert "Dockerfile" not in result.output
