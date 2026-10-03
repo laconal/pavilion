@@ -22,11 +22,16 @@
 - `services/base.py` `ServiceSpec(name, description, image_template, versions, build, volumes)`.
   `versions` is newest-first (first = default). `build(version)` returns the service body
   without `image`, so config can vary by version (Postgres data dir does).
+- `ServiceSpec.requires`: services that must already be in the compose file (pgbouncer
+  -> postgres, for `depends_on`); checked before prompting, fails with the
+  `pavilion add docker <x>` command to run. `ServiceSpec.tags` maps a version to its image
+  tag when they differ (`1.24.1` -> `v1.24.1-p1`).
 - `services/__init__.py` `SERVICES` registry. `cli.py` registers `list` plus one
   subcommand per spec, each with a `--version` option restricted by a generated `StrEnum`.
 - `file.py`: `find_compose_file` uses docker's lookup order (`compose.yaml`, `compose.yml`,
   `docker-compose.yaml`, `docker-compose.yml`), else creates `docker-compose.yml`.
-  ruamel.yaml round-trip keeps comments/order. `_to_yaml_node` quotes port mappings and
+  ruamel.yaml round-trip keeps comments/order; `width = 4096` so long values (URLs)
+  are never folded onto a continuation line. `_to_yaml_node` quotes port mappings and
   renders `["CMD", ...]` healthchecks in flow style. Named volumes are added if missing.
 - Flow: existing service? -> fail (unless `--force`) -> choose version -> write.
 

@@ -31,7 +31,11 @@ ForceOption = Annotated[
 @docker_app.command("list")
 def list_services() -> None:
     """Show available services."""
-    table = Table("Service", "Versions", "Image", "Description", box=None, header_style="bold")
+    table = Table(box=None, header_style="bold")
+    table.add_column("Service")
+    table.add_column("Versions")
+    table.add_column("Image", no_wrap=True)  # keep image names whole; descriptions wrap
+    table.add_column("Description")
     for spec in SERVICES.values():
         table.add_row(
             spec.name,
@@ -60,6 +64,11 @@ def _add(spec: ServiceSpec, version: str | None, file: Path | None, force: bool)
     # Check before prompting so we don't ask for a version we can't use.
     if not force and has_service(path, spec.name):
         raise _already_exists(spec, path)
+    if missing := [name for name in spec.requires if not has_service(path, name)]:
+        raise ui.fail(
+            f"{spec.name} needs {', '.join(missing)} in {path}; add it first: "
+            + " && ".join(f"pavilion add docker {name}" for name in missing)
+        )
 
     version = version or _choose_version(spec)
     try:

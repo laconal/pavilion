@@ -19,6 +19,12 @@ pavilion add docker redis -f infra/compose.yaml
 pavilion add docker redis --force     # overwrite an existing redis service
 ```
 
+`pavilion add docker pgbouncer` puts PgBouncer (`edoburu/pgbouncer`) in front of the
+`postgres` service, so add that first. It pools every database in transaction mode with
+the postgres credentials (SCRAM), supports prepared statements, and listens on
+`localhost:6432`: point the app's database URL there, and run migrations against
+postgres directly (5432).
+
 Pavilion edits the first of `compose.yaml`, `compose.yml`, `docker-compose.yaml` or
 `docker-compose.yml` it finds, or creates `docker-compose.yml`. Existing comments and
 ordering are preserved.

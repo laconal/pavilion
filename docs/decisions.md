@@ -37,6 +37,15 @@ the project owner — don't undo those without asking.
 - Postgres credentials are `${POSTGRES_USER:-postgres}`-style so a `.env` can override
   them; the healthcheck uses `$$` so the container's env is read, not compose's.
 
+- PgBouncer uses `edoburu/pgbouncer` (no official image; the user already runs it).
+  Configured by env vars, verified against the image's /entrypoint.sh and in a real
+  compose stack: `DATABASE_URL` without a database name (pools every database, `*`),
+  `AUTH_TYPE=scram-sha-256` (image default md5 doesn't match Postgres 14+),
+  `POOL_MODE=transaction`, `MAX_PREPARED_STATEMENTS=100` (asyncpg/psycopg prepared
+  statements work, PgBouncer 1.21+), host port 6432 -> container 5432, `depends_on`
+  postgres healthy, `pg_isready` healthcheck. Credentials reuse the postgres service's
+  `${POSTGRES_USER:-postgres}`-style variables, so a password must be URL-safe.
+
 ## Keys
 
 - JWA algorithm names (RS256, not "rsa256"); input is case-insensitive.

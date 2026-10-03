@@ -35,6 +35,8 @@ def _yaml() -> YAML:
     yaml = YAML()
     yaml.indent(mapping=2, sequence=4, offset=2)
     yaml.preserve_quotes = True
+    # Never fold long values (e.g. connection URLs) onto a continuation line.
+    yaml.width = 4096
     return yaml
 
 

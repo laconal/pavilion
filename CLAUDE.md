@@ -2,7 +2,7 @@
 
 A project scaffolder CLI (Typer + uv). Every command is `pavilion add <thing>`:
 
-- `add docker list | redis | postgres` — add a service to docker-compose.yml
+- `add docker list | redis | postgres | pgbouncer` — add a service to docker-compose.yml
 - `add keys [RS256|ES256|EdDSA]` — PEM signing key pair in `secrets/`
 - `add auth` — generate a framework-agnostic JWT auth package (`auth/`) + keys/secrets
 - `add service list | redis` — `RedisService` (async/sync) in `services/`, `REDIS_URL` in

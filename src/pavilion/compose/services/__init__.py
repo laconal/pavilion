@@ -5,9 +5,10 @@ and list it below.
 """
 
 from pavilion.compose.services.base import ServiceSpec
+from pavilion.compose.services.pgbouncer import PGBOUNCER
 from pavilion.compose.services.postgres import POSTGRES
 from pavilion.compose.services.redis import REDIS
 
-SERVICES: dict[str, ServiceSpec] = {spec.name: spec for spec in [REDIS, POSTGRES]}
+SERVICES: dict[str, ServiceSpec] = {spec.name: spec for spec in [REDIS, POSTGRES, PGBOUNCER]}
 
 __all__ = ["SERVICES", "ServiceSpec"]
